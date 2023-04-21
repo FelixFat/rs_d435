@@ -14,10 +14,14 @@ MAX_DIST = 4.0 # m
 DEPTH_SCALE = 0.0010000000474974513
 
 
+def get_localtime():
+    return time.strftime('%d%m%Y_%H%M%S', time.localtime())
+
+
 def make_csv(path: str):
     with open(path, 'w', encoding='UTF8', newline='') as file:
         writer = csv.writer(file, delimiter=";")
-        writer.writerow(['frame', 'HaG'])
+        writer.writerow(['Local Time', 'HaG'])
 
 
 def write_csv(path: str, num: int, height: float):
@@ -54,7 +58,7 @@ def video_stream():
     d_scale = profile.get_device().first_depth_sensor().get_depth_scale()
     clip_dist = MAX_DIST / d_scale
 
-    frame_count = 1
+    localtime = get_localtime()
     while True:
         frames = pipe.wait_for_frames()
         aligned_frames = align.process(frames)
@@ -63,6 +67,7 @@ def video_stream():
         color = aligned_frames.get_color_frame()
 
         if not depth or not color:
+            print(">> ERROR: NO FRAME DATA!")
             continue
         
         wc, hc = color.get_width(), color.get_height()
@@ -81,12 +86,9 @@ def video_stream():
         ))
 
         if '-r' in sys.argv:
-            if frame_count == 1:
-                make_csv('./records/log.csv')
-            write_csv('./records/log.csv', frame_count, dist)
-
-            print(write_im(f"./records/color/color_{frame_count}.jpg", cv2.cvtColor(im_color, cv2.COLOR_BGR2RGB)))
-            print(write_im(f"./records/depth/depth_{frame_count}.jpg", rs_data2dmap(im_depth, clip_dist)))
+            write_csv('./records/log.csv', localtime, dist)
+            print(write_im(f"./records/color/color_{localtime}.jpg", cv2.cvtColor(im_color, cv2.COLOR_BGR2RGB)))
+            print(write_im(f"./records/depth/depth_{localtime}.jpg", rs_data2dmap(im_depth, clip_dist)))
 
         cv2.namedWindow('RS D435 stream', cv2.WINDOW_NORMAL)
         cv2.imshow('RS D435 stream', images)
@@ -113,13 +115,14 @@ def video_stream():
             mid = len(pointcloud) // 2
             print(pointcloud[mid])
             '''
-
-            frame_count += 1
+            
             print("-" * 40)
             time.sleep(FREQ_FRAME)
 
 
-def show_depth_map():
+def show_test():
+    print(get_localtime())
+
     dmap = read_im('./include/test_depth.jpg', cv2.IMREAD_GRAYSCALE)
     depth = rs_dmap2data(dmap)
 
@@ -161,7 +164,7 @@ def main():
         video_stream()
 
     else:
-        show_depth_map()
+        show_test()
 
 
 if __name__ == '__main__':
