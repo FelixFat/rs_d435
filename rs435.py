@@ -7,21 +7,21 @@ import numpy as np
 import cv2
 
 
-IMG_SHAPE = (640, 480)
+IMG_SHAPE = (640, 480) # Input image resolution
 FPS_FRAME = 30 # fps
-FREQ_FRAME = 1 # s
+FREQ_FRAME = 0 # s
 MAX_DIST = 4.0 # m
 DEPTH_SCALE = 0.0010000000474974513
 
 
 def make_csv(path: str):
-    with open('./records/log.csv', 'w', encoding='UTF8', newline='') as file:
+    with open(path, 'w', encoding='UTF8', newline='') as file:
         writer = csv.writer(file, delimiter=";")
         writer.writerow(['frame', 'HaG'])
 
 
 def write_csv(path: str, num: int, height: float):
-    with open('./records/log.csv', 'a', encoding='UTF8', newline='') as file:
+    with open(path, 'a', encoding='UTF8', newline='') as file:
         writer = csv.writer(file, delimiter=";")
         writer.writerow([num, height])
 
@@ -42,6 +42,12 @@ def rs_data2dmap(data: np.ndarray, clip_dist: float) -> np.ndarray:
 
 def rs_dmap2data(dmap: np.ndarray) -> np.ndarray:
     return dmap * MAX_DIST / 255
+
+
+def rs_data2pc(data: np.ndarray):
+    pc = rs.pointcloud()
+    pointcloud = pc.calculate(data)
+    return np.asanyarray(pointcloud.get_vertices())
 
 
 def video_stream():
@@ -79,7 +85,7 @@ def video_stream():
                 make_csv('./records/log.csv')
             write_csv('./records/log.csv', frame_count, dist)
 
-            print(write_im(f"./records/color/rgb_{frame_count}.jpg", cv2.cvtColor(im_color, cv2.COLOR_BGR2RGB)))
+            print(write_im(f"./records/color/color_{frame_count}.jpg", cv2.cvtColor(im_color, cv2.COLOR_BGR2RGB)))
             print(write_im(f"./records/depth/depth_{frame_count}.jpg", rs_data2dmap(im_depth, clip_dist)))
 
         cv2.namedWindow('RS D435 stream', cv2.WINDOW_NORMAL)
@@ -90,14 +96,34 @@ def video_stream():
             cv2.destroyAllWindows()
             return
         else:
+            '''
+            depth_intrinsic =  rs.intrinsics()
+            depth_intrinsic.width = 640
+            depth_intrinsic.height = 480
+            depth_intrinsic.ppx = 213.47621154785156
+            depth_intrinsic.ppy = 121.29695892333984
+            depth_intrinsic.fx = 306.0126953125
+            depth_intrinsic.fy = 306.1602783203125
+            depth_intrinsic.model = rs.pyrealsense2.distortion.inverse_brown_conrady
+            depth_intrinsic.coeffs = [0.0, 0.0, 0.0, 0.0, 0.0]
+            depth_point = rs.rs2_deproject_pixel_to_point(depth_intrinsic, [wd // 2, hd // 2], dist)
+            print(depth_point)
+
+            pointcloud = rs_data2pc(depth)
+            mid = len(pointcloud) // 2
+            print(pointcloud[mid])
+            '''
+
             frame_count += 1
             print("-" * 40)
             time.sleep(FREQ_FRAME)
 
 
 def show_depth_map():
-    dmap = read_im('./records/depth/depth_10.jpg', cv2.IMREAD_GRAYSCALE)
+    dmap = read_im('./include/test_depth.jpg', cv2.IMREAD_GRAYSCALE)
     depth = rs_dmap2data(dmap)
+
+    color = read_im('./include/test_color.jpg', cv2.IMREAD_COLOR)
 
     print(
         dmap[dmap.shape[0] // 2, dmap.shape[1] // 2],
@@ -105,7 +131,12 @@ def show_depth_map():
     )
 
     while True:
-        cv2.imshow('', cv2.applyColorMap(cv2.convertScaleAbs(depth / DEPTH_SCALE, alpha=0.03), cv2.COLORMAP_JET))
+        images = np.hstack((
+            cv2.applyColorMap(cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_JET),
+            cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
+        ))
+
+        cv2.imshow('', images)
         
         key = cv2.waitKey(1)
         if key & 0xFF == ord('q') or key == 27:
@@ -116,7 +147,6 @@ def show_depth_map():
 def main():
     global pipe
     global profile
-
     global align
 
     if '-s' in sys.argv:
