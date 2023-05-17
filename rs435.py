@@ -80,18 +80,18 @@ def video_stream():
         im_color = np.asanyarray(color.get_data())
         im_depth = np.asanyarray(depth.get_data())
 
-        images = np.hstack((
-            cv2.applyColorMap(cv2.convertScaleAbs(im_depth, alpha=0.03), cv2.COLORMAP_JET),
-            cv2.cvtColor(im_color, cv2.COLOR_BGR2RGB)
-        ))
-
         if '-r' in sys.argv:
             write_csv('./records/log.csv', localtime, dist)
             print(write_im(f"./records/color/color_{localtime}.jpg", cv2.cvtColor(im_color, cv2.COLOR_BGR2RGB)))
             print(write_im(f"./records/depth/depth_{localtime}.jpg", rs_data2dmap(im_depth, clip_dist)))
 
-        cv2.namedWindow('RS D435 stream', cv2.WINDOW_NORMAL)
-        cv2.imshow('RS D435 stream', images)
+        if '-sh' in sys.argv:
+            images = np.hstack((
+                cv2.applyColorMap(cv2.convertScaleAbs(im_depth, alpha=0.03), cv2.COLORMAP_JET),
+                cv2.cvtColor(im_color, cv2.COLOR_BGR2RGB)
+            ))
+            cv2.namedWindow('RS D435 stream', cv2.WINDOW_NORMAL)
+            cv2.imshow('RS D435 stream', images)
         
         key = cv2.waitKey(1)
         if key & 0xFF == ord('q') or key == 27:
@@ -163,8 +163,11 @@ def main():
         align = rs.align(rs.stream.color)
         video_stream()
 
-    else:
+    elif '-t' in sys.argv:
         show_test()
+
+    else:
+        exit()
 
 
 if __name__ == '__main__':
